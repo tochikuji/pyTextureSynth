@@ -11,21 +11,18 @@ from .psstat import PSStat
 
 def analyze(img, Nsc=4, Nor=4, Na=7, preview=False):
     """
-    Because I have no ESP skills, this is *just* my guess.
+    Because I have no ESP skills, these variable annotations are 
+    *just* my humble guess.
 
     Nsc : Number of scales
     Nor : Number of orders
-    Na  : Number of ???? (neighbor? but has no 'a')
+    Na  : Number of ???? (this means neighbor, but has no 'a')
     """
 
     img = numpy.asarray(img, dtype=numpy.float64)
     if len(img.shape) != 2:
         raise ValueError("image must be 2-dimensional grayscaled, "
                          "that has (height, width) shape")
-
-    Nsc = Nsc
-    Nor = Nor
-    Na = Na
 
     if Na % 2 == 0:
         raise ValueError("Neighbor parameter Na could not be even number")
