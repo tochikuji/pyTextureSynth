@@ -1,4 +1,5 @@
 import numpy
+import dimtools
 
 
 fkeys = ['pixelStats',
@@ -17,11 +18,14 @@ class PSStat(object):
 
     def __init__(self, *param, **dic):
 
-        # param is empty
+        # default; make empty PSS obj
         if len(param) == 0 and len(dic) == 0:
             for name in fkeys:
                 setattr(self, name, None)
 
+                return
+
+        # with unnamed params
         elif len(param) != 0:
             if len(param) != len(fkeys):
                 raise ValueError("length of unnamed param does not match"
@@ -30,6 +34,7 @@ class PSStat(object):
             for v, name in zip(param, fkeys):
                 setattr(self, name, v)
 
+        # with named params
         else:
             if set(fkeys) not in set(dic.keys):
                 raise KeyError("named parameter must contain all of fkeys."
@@ -37,6 +42,32 @@ class PSStat(object):
 
             for name in fkeys:
                 setattr(self, name, dic[name])
+
+        # estimate PSS hyper-params
+        if 'param' in dic:
+            hparams = dic['param']
+            if len(hparams) != 3:
+                raise IndexError('hyper-param of PSS must has 3 elements, '
+                                 'which are num of scales, num of orientations'
+                                 ' and neighbor pixels.')
+            else:
+                self.Nsc, self.Nor, self.Na = self.hparams
+
+        # estimate hyper params with data
+        else:
+            # from formed autoCorrMag tensor
+            acm = self.autoCorrMag
+            shape = acm.shape
+            if len(acm.shape) == 4:
+                self.Na = shape[1]
+                self.Nor = shape[2]
+                self.Nsc = shape[3]
+
+            # if vectorized
+            else:
+                self.Nsc, self.Nor, self.Na = \
+                    dimtools.estimate_hyperparam(self.dim)
+
 
     def __getitem__(self, key):
         if not isinstance(key, str):
@@ -57,6 +88,10 @@ class PSStat(object):
         return numpy.hstack([
             x.reshape(-1) for x in self.data
         ])
+
+    @property
+    def dim(self):
+        numpy.sum(self.dims(flatten=True), dtype=int)
 
     def dims(self, flatten=False):
         dimensions = [x.shape for x in self.data]
