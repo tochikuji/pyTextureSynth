@@ -78,3 +78,64 @@ def modacor22(X, Cy, p=1):
     Y = numpy.fft.ifft2(Yf)
 
     return Y, snrV, Chf
+
+
+def modskew(ch, sk, p=1):
+    N = numpy.prod(ch.shape)
+    me = numpy.mean(ch)
+    ch = ch - me
+
+    # the index correspond to the order of a power
+    # we must pay attention to such indexing
+    m = numpy.zeros(6, ch.shape[0], ch.shape[1])
+    for n in range(7):
+        m[n] = numpy.mean(ch ** n)
+
+    sd = sqrt(m[2])
+    s = m[3] / (sd ** 3)
+    snrk = snr[sk, sk - s]
+    sk = s * (1 - p) + sk * p
+
+    # [42-53]
+    A = m[6] - 3 * sd * s * m[5] + 3 * (sd ** 2) * (s ** 2-1) * m[4] + \
+        (sd ** 6) * (2 + 3 * s ** 2 - s ** 4)
+    B = 3 * (m[5] - 2 * sd * s * m[4] + sd ** 5 * s ** 3)
+    C = 3 * (m[4] - sd ** 4 * (1 + s ** 2))
+    D = s * sd ** 3
+
+    a = numpy.zeros(7)
+    a[6] = A ** 2
+    a[5] = 2 * A * B
+    a[4] = B ** 2 + 2 * A * C
+    a[3] = 2 * (A * D + B * C)
+    a[2] = C ** 2 + 2 * B * D
+    a[1] = 2 * C * D
+    a[0] = D ** 2
+
+    # [57-64]
+    A2 = sd ** 2
+    B2 = m[4] - (1 + s ** 2) * sd ** 4
+
+    b = numpy.zeros(7)
+    b[6] = B2 ** 3
+    b[4] = 3 * A2 * B2 ** 2
+    b[2] = 3 * A2 ** 2 * B2
+    b[0] = A2 ** 3
+
+    # [86-96]
+    d = numpy.zeros(8)
+    d[7] = B * b[6]
+    d[6] = 2 * C * b[6] - A * b[4]
+    d[5] = 3 * D * b[6]
+    d[4] = C * b[4] - 2 * A * b[2]
+    d[3] = 2 * D * b[4] - B * b[2]
+    d[2] = -3 * A * b[0]
+    d[1] = D * b[2] - 2 * B * b[0]
+    d[0] = -C * b[0]
+
+    d = reversed(d)
+    mMlambda = numpy.roots(d)
+
+    # [98-114]
+    tg = numpy.imag(mMlambda) / numpy.real(mMlambda)
+    mMlambda = mMlambda

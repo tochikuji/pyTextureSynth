@@ -7,7 +7,7 @@ import pyrtools
 from .util import pyrBand, pyrBandIndices, expand, shift, vectify, pyrLow
 from .fakesfpyr import FakeSFPyr
 from .psstat import PSStat
-from .optimizer import modacor22
+from .optimizer import modacor22, modskew, modkurt
 
 
 class Synthesizer(object):
@@ -100,7 +100,7 @@ class Synthesizer(object):
         if self.cmask[1]:
             if vari / var0 > 1e-4:
                 # TODO: store snr2
-                im, _, __ = modacor22(
+                self.im, _, __ = modacor22(
                     im, self.acr0[la - le:la + le, la - le:la + le, self.Nsc],
                     self.p
                 )
@@ -111,11 +111,46 @@ class Synthesizer(object):
                 im = numpy.real(im)
 
         if self.cmask[0]:
+            if vari / var0 > 1e-4:
+                # TODO: store snr7
+                self.im, _ = modskew(self.im, self.skew0p[self.Nsc + 1], self.p)
+                self.im, _ = modkurt(self.im, self.kurt0p[self.Nsc + 1], self.p)
 
 
-        # subtract mean of magnitude [189-]
+        # subtract mean of magnitude [189-197]
         if self.cmask[2]:
-            pass
+            magMeans = numpy.zeros(nband, 1)
+            # n here means nband due to the name overrapping to constant
+            for n in range(nband):
+                magMeans[n] = numpy.mean(apyr[n])
+                apyr[n] = apyr[n] - magMeans[n]
+
+        # Coarse-to-fine loop [200-]
+        for nsc in range(Nsc)[::-1]:
+            firstBnum = nsc * self.Nor + 1
+            cousinSz = 1
+
+            if self.cmask[2] or self.cmask[3]:
+                if nsc < Nsc:
+                    parents = numpy.zeros((cousinSz, Nor))
+                    rparents = numpy.zeros((cousinSz, Nor * 2))
+
+                    for nor in range(Nor):
+                        nband = 0x111
+                        tmp = expand(pyr[nband], 2) / 4.
+                        rtmp = numpy.real(tmp)
+                        itmp = numpy.imag(tmp)
+                        tmp = numpy.sqrt(rtmp ** 2 + itmp ** 2) * numpy.exp(2j * numpy.arctan(rtmp, itmp))
+                        rparents[:, nor] = vectify(numpy.real(tmp))
+                        rparents[:, Nor + nor] = vectify(numpy.imag(tmp))
+
+                        tmp = numpy.abs(tmp)
+                        parents[:, nor] = vectify(tmp - numpy.mean(tmp))
+                else:
+                    rparents = numpy.array([])
+                    parents = numpy.array([])
+
+            if cmask[2]:
 
 
     def synthesize(self, n_iter=50):
